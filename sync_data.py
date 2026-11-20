@@ -1,5 +1,3 @@
-name: Auto Sync Data Pasaran
-
 on:
   schedule:
     # Jalan otomatis tiap 10 menit dari 11:00 WIB s/d 00:59 WIB (04:00 - 17:59 UTC)

@@ -1,4 +1,4 @@
-concuname: Auto Sync Data Pasaran
+name: Auto Sync Data Pasaran
 
 on:
   schedule:
@@ -43,4 +43,4 @@ jobs:
             else
               echo "Belum ada perubahan angka baru."
             fi
-          firrency: 
+          fi

@@ -4,7 +4,7 @@ import os
 import re
 import time
 import urllib.parse
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 
 import requests
@@ -31,8 +31,6 @@ BASE_HEADERS = {
     ),
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,application/json,*/*;q=0.8",
     "Accept-Language": "id-ID,id;q=0.9,en-US;q=0.8",
-    "Cache-Control": "no-cache",
-    "Pragma": "no-cache",
 }
 
 MARKETS = [
@@ -42,6 +40,7 @@ MARKETS = [
         "keywords": ["sdy", "sidney", "sydney"],
         "reject_heading": ["lotto", "loto", "sdylt", "hklt", "macau", "singapore", "hongkong"],
         "must_lotto": False,
+        "allow_lotto_word": False,
         "newest_bottom": True,
         "urls": [
             "https://datakeluaran7.com/data-sdy/",
@@ -58,6 +57,7 @@ MARKETS = [
         "keywords": ["sdy", "sidney", "sydney"],
         "reject_heading": ["hklt", "macau", "singapore", "hongkong"],
         "must_lotto": True,
+        "allow_lotto_word": True,
         "newest_bottom": True,
         "urls": [
             "https://datakeluaran7.com/data-sidney-lotto/",
@@ -73,6 +73,7 @@ MARKETS = [
         "keywords": ["hk", "hongkong"],
         "reject_heading": ["sdylt", "macau", "singapore", "sidney", "sydney"],
         "must_lotto": True,
+        "allow_lotto_word": True,
         "newest_bottom": True,
         "urls": [
             "https://datakeluaran7.com/data-hk-lotto/",
@@ -92,6 +93,7 @@ MARKETS = [
             "singapore", "sidney", "sydney",
         ],
         "must_lotto": False,
+        "allow_lotto_word": False,
         "newest_bottom": True,
         "urls": [
             "https://datakeluaran7.com/data-hk-pools/",
@@ -116,6 +118,7 @@ MARKETS = [
             "lotto", "loto", "sdylt", "hklt", "macau", "hongkong", "sidney", "sydney"
         ],
         "must_lotto": False,
+        "allow_lotto_word": False,
         "newest_bottom": True,
         "urls": [
             "https://datakeluaran7.com/data-sgp/",
@@ -132,6 +135,7 @@ MARKETS = [
         "keywords": ["macau", "ttm", "totomacau"],
         "reject_heading": ["sdylt", "hklt", "singapore", "hongkong", "sidney", "sydney"],
         "must_lotto": False,
+        "allow_lotto_word": False,
         "newest_bottom": False,
         "urls": [
             "https://datakeluaran7.com/data-macau/",
@@ -148,6 +152,7 @@ MARKETS = [
         "keywords": ["cambodia", "cmd", "kamboja", "magnum"],
         "reject_heading": ["lotto", "sdylt", "hklt", "macau", "singapore"],
         "must_lotto": False,
+        "allow_lotto_word": False,
         "newest_bottom": True,
         "urls": [
             "https://datakeluaran7.com/data-cambodia/",
@@ -155,26 +160,30 @@ MARKETS = [
             "https://datakeluaran7.com/data-keluaran-cambodia/",
             "https://datatogellengkap.info/data-cambodia-togel/",
             "https://tabelpaito.com/data-keluaran-cambodia/",
-            "https://paitowarna4d.com/data-cambodia/",
         ],
     },
     {
         "id": "twn",
         "name": "Taiwan",
-        "keywords": ["taiwan", "tw", "twn"],
-        "reject_heading": ["lotto", "sdylt", "hklt", "macau", "singapore"],
+        "keywords": ["taiwan", "twn"],
+        "reject_heading": [
+            "sdylt", "hklt", "sgplt", "sdy lotto", "hk lotto",
+            "sidney lotto", "hongkong lotto", "macau", "singapore",
+        ],
         "must_lotto": False,
+        "allow_lotto_word": True,
         "newest_bottom": True,
         "urls": [
             "https://datakeluaran7.com/data-taiwan/",
+            "https://datakeluaran7.com/data-keluaran-taiwan/",
+            "https://datakeluaran7.com/data-taiwan-lotto/",
             "https://datakeluaran.org/data-taiwan/",
-            "https://paitowarna4d.com/data-taiwan/",
+            "https://datakeluaran.org/taiwan/",
             "https://datatogellengkap.info/data-taiwan/",
             "https://tabelpaito.com/data-keluaran-taiwan/",
+            "https://paitowarna4d.com/data-taiwan/",
             "https://rajapaito.info/data-taiwan/",
             "https://paitopaman.com/data-taiwan/",
-            "https://datakeluaran7.com/data-keluaran-taiwan/",
-            "https://datakeluaran.org/taiwan/",
         ],
     },
     {
@@ -183,6 +192,7 @@ MARKETS = [
         "keywords": ["china", "chn", "cina"],
         "reject_heading": ["lotto", "sdylt", "hklt", "macau", "singapore"],
         "must_lotto": False,
+        "allow_lotto_word": False,
         "newest_bottom": True,
         "urls": [
             "https://datakeluaran7.com/data-china/",
@@ -190,26 +200,31 @@ MARKETS = [
             "https://datakeluaran7.com/data-keluaran-china/",
             "https://datatogellengkap.info/data-china/",
             "https://tabelpaito.com/data-keluaran-china/",
-            "https://paitowarna4d.com/data-china/",
         ],
     },
     {
         "id": "jpn",
         "name": "Japan",
         "keywords": ["japan", "jpn", "jepang"],
-        "reject_heading": ["lotto", "sdylt", "hklt", "macau", "singapore"],
+        "reject_heading": [
+            "sdylt", "hklt", "sgplt", "sdy lotto", "hk lotto",
+            "sidney lotto", "hongkong lotto", "macau", "singapore",
+        ],
         "must_lotto": False,
+        "allow_lotto_word": True,
         "newest_bottom": True,
         "urls": [
-            "https://paitowarna4d.com/data-japan/",
-            "https://datatogellengkap.info/data-japan/",
             "https://tabelpaito.com/data-keluaran-japan/",
-            "https://rajapaito.info/data-japan/",
-            "https://paitopaman.com/data-japan/",
+            "https://datatogellengkap.info/data-japan/",
+            "https://paitowarna4d.com/data-japan/",
             "https://datakeluaran.org/data-japan/",
             "https://datakeluaran.org/japan/",
+            "https://rajapaito.info/data-japan/",
+            "https://paitopaman.com/data-japan/",
             "https://datakeluaran7.com/data-japan/",
             "https://datakeluaran7.com/data-keluaran-japan/",
+            "https://datakeluaran7.com/data-japan-pools/",
+            "https://datakeluaran7.com/data-jepang/",
         ],
     },
     {
@@ -218,6 +233,7 @@ MARKETS = [
         "keywords": ["bullseye", "bulseye", "bls"],
         "reject_heading": ["lotto", "loto", "sdylt", "hklt", "macau", "singapore", "hongkong"],
         "must_lotto": False,
+        "allow_lotto_word": False,
         "newest_bottom": True,
         "urls": [
             "https://datakeluaran7.com/data-bullseye/",
@@ -245,51 +261,38 @@ def to_google_translate_proxy(original_url: str):
         return None
 
 
-def _single_fetch(mode: str, req_url: str, headers: dict, timeout: int):
-    try:
-        resp = requests.get(req_url, headers=headers, timeout=timeout, verify=False)
-        if resp.status_code < 200 or resp.status_code >= 300 or len(resp.text) < 200:
-            return None
-        if mode == "allorigins":
-            data = resp.json()
-            contents = str(data.get("contents", ""))
-            if contents.startswith("data:") and ";base64," in contents:
-                b64 = contents.split(";base64,", 1)[1].strip()
-                contents = base64.b64decode(b64).decode("utf-8", errors="ignore")
-            return contents if len(contents) > 200 else None
-        return resp.text
-    except Exception:
-        return None
-
-
-def fetch_raw_html(url: str, timeout: int = 6):
-    # 1. Coba koneksi langsung dulu (paling cepat & selalu fresh di server Linux GitHub)
-    direct = _single_fetch("direct", url, BASE_HEADERS, timeout=5)
-    if direct and ("<table" in direct.lower() or "<tr" in direct.lower()):
-        return direct
-
-    # 2. Jika direct terblokir/kosong, balapkan Jina (No-Cache) + Google Proxy + AllOrigins serentak
+def fetch_raw_html(url: str, timeout: int = 8):
     encoded = urllib.parse.quote(url, safe="")
     gtrans = to_google_translate_proxy(url)
-    wave = [
-        ("jina_html", f"https://r.jina.ai/{url}", {**BASE_HEADERS, "X-Return-Format": "html", "X-No-Cache": "true"}),
+    attempts = [
+        ("direct", url, BASE_HEADERS),
+        ("gtrans", gtrans, BASE_HEADERS) if gtrans else None,
+        ("jina_html", f"https://r.jina.ai/{url}", {**BASE_HEADERS, "X-Return-Format": "html"}),
         ("allorigins", f"https://api.allorigins.win/get?url={encoded}", BASE_HEADERS),
+        ("codetabs", f"https://api.codetabs.com/v1/proxy?quest={encoded}", BASE_HEADERS),
+        ("jina_md", f"https://r.jina.ai/{url}", BASE_HEADERS),
     ]
-    if gtrans:
-        wave.append(("gtrans", gtrans, BASE_HEADERS))
-
-    with ThreadPoolExecutor(max_workers=len(wave)) as ex:
-        futs = [ex.submit(_single_fetch, m, u, h, timeout) for m, u, h in wave]
-        for fut in as_completed(futs, timeout=timeout + 2):
-            try:
-                res = fut.result()
-                if res and len(res) > 200:
-                    return res
-            except Exception:
+    for item in attempts:
+        if not item:
+            continue
+        mode, req_url, headers = item
+        try:
+            resp = requests.get(req_url, headers=headers, timeout=timeout, verify=False)
+            if resp.status_code < 200 or resp.status_code >= 300 or len(resp.text) < 200:
                 continue
-
-    # 3. Fallback terakhir: Jina Markdown
-    return _single_fetch("jina_md", f"https://r.jina.ai/{url}", {**BASE_HEADERS, "X-No-Cache": "true"}, timeout=timeout)
+            if mode == "allorigins":
+                data = resp.json()
+                contents = str(data.get("contents", ""))
+                if contents.startswith("data:") and ";base64," in contents:
+                    b64 = contents.split(";base64,", 1)[1].strip()
+                    contents = base64.b64decode(b64).decode("utf-8", errors="ignore")
+                if len(contents) > 200:
+                    return contents
+            else:
+                return resp.text
+        except Exception:
+            continue
+    return None
 
 
 def discover_homepage_links():
@@ -298,13 +301,9 @@ def discover_homepage_links():
         "https://datakeluaran7.com/",
         "https://datakeluaran.org/",
         "https://tabelpaito.com/",
-        "https://paitowarna4d.com/",
     ]
-
-    with ThreadPoolExecutor(max_workers=4) as ex:
-        raw_map = dict(zip(homepages, ex.map(lambda h: fetch_raw_html(h, timeout=5), homepages)))
-
-    for home, raw in raw_map.items():
+    for home in homepages:
+        raw = fetch_raw_html(home, timeout=7)
         if not raw:
             continue
         try:
@@ -334,16 +333,21 @@ def discover_homepage_links():
                 for spec in MARKETS:
                     if not any(kw in combined for kw in spec["keywords"]):
                         continue
-                    has_lotto_or_hktoto = (
-                        "lotto" in combined
-                        or "loto" in combined
-                        or (
-                            spec["id"].startswith("hk_")
-                            and any(x in combined for x in ["hk-toto", "hktoto", "toto-hk", "hk toto", "hongkong toto"])
+                    allow_lotto = spec.get("allow_lotto_word", False)
+                    if not allow_lotto:
+                        has_lotto_or_hktoto = (
+                            "lotto" in combined
+                            or "loto" in combined
+                            or (
+                                spec["id"].startswith("hk_")
+                                and any(
+                                    x in combined
+                                    for x in ["hk-toto", "hktoto", "toto-hk", "hk toto", "hongkong toto"]
+                                )
+                            )
                         )
-                    )
-                    if spec["must_lotto"] != has_lotto_or_hktoto:
-                        continue
+                        if spec["must_lotto"] != has_lotto_or_hktoto:
+                            continue
                     lst = discovered[spec["id"]]
                     if href not in lst:
                         if not spec["must_lotto"] and "pools" in combined:
@@ -536,9 +540,12 @@ def extract_universal_rows(raw_content: str, default_year: int):
                 continue
             stripped = re.sub(r"\b\d{1,4}[-/]\d{1,2}[-/]\d{1,4}\b", " ", line)
             stripped = re.sub(r"\b\d{1,2}:\d{2}\b", " ", stripped)
-            matches = [n for n in re.findall(r"\b(\d{4})\b", stripped) if not (2020 <= int(n) <= 2030)]
+            matches = [
+                m for m in re.findall(r"\b(\d{4})\b", stripped)
+                if int(m) < 2020 or int(m) > 2030
+            ]
             if 3 <= len(matches) <= 7:
-                rows.append([(m, f"{DAYS_7[i % 7]} ({default_year})") for i, m in enumerate(matches)])
+                rows.append([(n, f"{DAYS_7[i % 7]} ({default_year})") for i, n in enumerate(matches)])
     except Exception:
         pass
     return rows
@@ -551,6 +558,11 @@ def parse_all_table_draws(raw_content: str, spec: dict):
     current_year = datetime.now(WIB).year
     is_macau = spec["id"] == "ttm"
     is_sgp = spec["id"] == "sgp"
+    allow_lotto = spec.get("allow_lotto_word", False)
+
+    bad_row_tokens = ["sdylt", "hklt", "sgplt", "hktoto"]
+    if not spec["must_lotto"] and not allow_lotto:
+        bad_row_tokens.extend(["lotto", "loto"])
 
     if any(tag in raw_content.lower() for tag in ("<tr", "<td")):
         try:
@@ -560,7 +572,7 @@ def parse_all_table_draws(raw_content: str, spec: dict):
 
             title_el = soup.find(["title", "h1"])
             title_txt = title_el.get_text(" ", strip=True).lower() if title_el else ""
-            if title_txt:
+            if title_txt and not allow_lotto:
                 is_wrong_lotto = (
                     not spec["must_lotto"]
                     and "pools" not in title_txt
@@ -602,9 +614,7 @@ def parse_all_table_draws(raw_content: str, spec: dict):
                         continue
 
                     low_row = plain_row.lower()
-                    if not spec["must_lotto"] and any(
-                        w in low_row for w in ["sdylt", "hklt", "sgplt", "hktoto", "lotto", "loto"]
-                    ):
+                    if any(w in low_row for w in bad_row_tokens):
                         continue
 
                     yr_m = re.search(r"\b(202[0-9])\b", plain_row)
@@ -663,7 +673,7 @@ def parse_all_table_draws(raw_content: str, spec: dict):
             if skip_sec or "---" in clean:
                 continue
             low_line = clean.lower()
-            if not spec["must_lotto"] and any(w in low_line for w in ["sdylt", "hklt", "sgplt", "hktoto", "lotto"]):
+            if any(w in low_line for w in bad_row_tokens):
                 continue
             parts = [p.strip() for p in clean.strip("|").split("|")]
             if not parts:
@@ -700,7 +710,6 @@ def parse_all_table_draws(raw_content: str, spec: dict):
                 if v:
                     vertical_rows.append(v)
 
-    # Fallback Universal (penting untuk situs Taiwan & Japan berbasis div/spasi)
     if not dated_rows and not undated_rows and not vertical_rows and not is_macau:
         uni = extract_universal_rows(raw_content, current_year)
         if len(uni) >= 3:
@@ -840,7 +849,7 @@ def sync_single_market(spec, discovered_urls, existing_entries, forbidden_tail=N
         if spec["id"] != "hk_pools" and host in tried_hosts:
             continue
 
-        raw = fetch_raw_html(url, timeout=6)
+        raw = fetch_raw_html(url, timeout=8)
         if not raw:
             continue
         draws, latest_dt = parse_all_table_draws(raw, spec)
@@ -909,7 +918,7 @@ def main():
         draws = sync_single_market(spec, discovered, existing.get(spec["id"], []), forbidden_tail=forb)
         return spec["id"], draws
 
-    with ThreadPoolExecutor(max_workers=6) as pool:
+    with ThreadPoolExecutor(max_workers=4) as pool:
         for m_id, draws in pool.map(worker, other_specs):
             results[m_id] = draws
 

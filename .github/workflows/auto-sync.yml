@@ -1,10 +1,14 @@
-name: Auto Sync Data Pasaran
+concuname: Auto Sync Data Pasaran
 
 on:
   schedule:
-    # Jalan otomatis tiap 20 menit dari 11:00 WIB s/d 00:59 WIB (04:00 - 17:59 UTC)
-    - cron: '*/20 4-17 * * *'
+    # Jalan otomatis tiap 10 menit dari 11:00 WIB s/d 00:59 WIB (04:00 - 17:59 UTC)
+    - cron: '*/10 4-17 * * *'
   workflow_dispatch:
+
+concurrency:
+  group: auto-sync-data-pasaran
+  cancel-in-progress: false
 
 permissions:
   contents: write
@@ -39,4 +43,4 @@ jobs:
             else
               echo "Belum ada perubahan angka baru."
             fi
-          fi
+          firrency: 

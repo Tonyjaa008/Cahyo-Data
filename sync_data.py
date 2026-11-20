@@ -57,7 +57,7 @@ MARKETS = [
         "keywords": ["sdy", "sidney", "sydney"],
         "reject_heading": ["hklt", "macau", "singapore", "hongkong"],
         "must_lotto": True,
-        "allow_lotto_word": True,
+        "allow_lotto_word": False,
         "newest_bottom": True,
         "urls": [
             "https://datakeluaran7.com/data-sidney-lotto/",
@@ -73,7 +73,7 @@ MARKETS = [
         "keywords": ["hk", "hongkong"],
         "reject_heading": ["sdylt", "macau", "singapore", "sidney", "sydney"],
         "must_lotto": True,
-        "allow_lotto_word": True,
+        "allow_lotto_word": False,
         "newest_bottom": True,
         "urls": [
             "https://datakeluaran7.com/data-hk-lotto/",
@@ -214,17 +214,15 @@ MARKETS = [
         "allow_lotto_word": True,
         "newest_bottom": True,
         "urls": [
+            "https://datajapanpools.com/",
+            "https://datajapan.ink/",
+            "https://datalaporan.com/",
+            "https://japanloto.asia/",
+            "https://livedrawjapan.pro/",
             "https://tabelpaito.com/data-keluaran-japan/",
             "https://datatogellengkap.info/data-japan/",
             "https://paitowarna4d.com/data-japan/",
             "https://datakeluaran.org/data-japan/",
-            "https://datakeluaran.org/japan/",
-            "https://rajapaito.info/data-japan/",
-            "https://paitopaman.com/data-japan/",
-            "https://datakeluaran7.com/data-japan/",
-            "https://datakeluaran7.com/data-keluaran-japan/",
-            "https://datakeluaran7.com/data-japan-pools/",
-            "https://datakeluaran7.com/data-jepang/",
         ],
     },
     {
@@ -300,7 +298,6 @@ def discover_homepage_links():
     homepages = [
         "https://datakeluaran7.com/",
         "https://datakeluaran.org/",
-        "https://tabelpaito.com/",
     ]
     for home in homepages:
         raw = fetch_raw_html(home, timeout=7)
@@ -333,21 +330,27 @@ def discover_homepage_links():
                 for spec in MARKETS:
                     if not any(kw in combined for kw in spec["keywords"]):
                         continue
-                    allow_lotto = spec.get("allow_lotto_word", False)
-                    if not allow_lotto:
-                        has_lotto_or_hktoto = (
-                            "lotto" in combined
-                            or "loto" in combined
-                            or (
-                                spec["id"].startswith("hk_")
-                                and any(
-                                    x in combined
-                                    for x in ["hk-toto", "hktoto", "toto-hk", "hk toto", "hongkong toto"]
-                                )
+                    has_lotto_or_hktoto = (
+                        "lotto" in combined
+                        or "loto" in combined
+                        or (
+                            spec["id"].startswith("hk_")
+                            and any(
+                                x in combined
+                                for x in ["hk-toto", "hktoto", "toto-hk", "hk toto", "hongkong toto"]
                             )
                         )
-                        if spec["must_lotto"] != has_lotto_or_hktoto:
+                    )
+                    # 1. Wajib Lotto (sdy_lotto, hk_lotto): HARUS ada kata lotto/loto
+                    if spec["must_lotto"]:
+                        if not has_lotto_or_hktoto:
                             continue
+                    # 2. Non-Lotto ketat (sdy_pools, hk_pools, sgp, ttm, cmd, chn, bls): TOLAK kata lotto/loto
+                    elif not spec.get("allow_lotto_word", False):
+                        if has_lotto_or_hktoto:
+                            continue
+                    # 3. Khusus Taiwan & Japan (allow_lotto_word=True): boleh pakai atau tanpa kata lotto
+
                     lst = discovered[spec["id"]]
                     if href not in lst:
                         if not spec["must_lotto"] and "pools" in combined:
@@ -563,6 +566,10 @@ def parse_all_table_draws(raw_content: str, spec: dict):
     bad_row_tokens = ["sdylt", "hklt", "sgplt", "hktoto"]
     if not spec["must_lotto"] and not allow_lotto:
         bad_row_tokens.extend(["lotto", "loto"])
+    if spec["id"] == "sdy_lotto":
+        bad_row_tokens = ["hklt", "sgplt", "hktoto"]
+    elif spec["id"] == "hk_lotto":
+        bad_row_tokens = ["sdylt", "sgplt"]
 
     if any(tag in raw_content.lower() for tag in ("<tr", "<td")):
         try:
@@ -572,14 +579,18 @@ def parse_all_table_draws(raw_content: str, spec: dict):
 
             title_el = soup.find(["title", "h1"])
             title_txt = title_el.get_text(" ", strip=True).lower() if title_el else ""
-            if title_txt and not allow_lotto:
-                is_wrong_lotto = (
-                    not spec["must_lotto"]
-                    and "pools" not in title_txt
-                    and any(w in title_txt for w in ["lotto", "loto", "hk toto", "hongkong toto"])
-                )
-                if is_wrong_lotto:
-                    return [], None
+            if title_txt:
+                if spec["must_lotto"]:
+                    # Halaman SDY Lotto / HK Lotto WAJIB punya kata lotto/loto pada judul
+                    if "lotto" not in title_txt and "loto" not in title_txt:
+                        return [], None
+                elif not allow_lotto:
+                    is_wrong_lotto = (
+                        "pools" not in title_txt
+                        and any(w in title_txt for w in ["lotto", "loto", "hk toto", "hongkong toto"])
+                    )
+                    if is_wrong_lotto:
+                        return [], None
 
             for tbl in soup.find_all("table"):
                 trs = tbl.find_all("tr")
@@ -836,6 +847,13 @@ def select_best_consensus(candidates, spec):
 
 def sync_single_market(spec, discovered_urls, existing_entries, forbidden_tail=None):
     forbidden_tail = forbidden_tail or []
+    # Bersihkan memori lama jika terindikasi tertukar dengan pasaran lain
+    if existing_entries:
+        if matches_forbidden_tail(existing_entries, forbidden_tail):
+            existing_entries = []
+        elif spec["must_lotto"] and len(existing_entries) > 2000:
+            existing_entries = []
+
     candidate_urls = []
     for u in discovered_urls.get(spec["id"], []) + spec["urls"]:
         if u and u not in candidate_urls:
@@ -906,15 +924,28 @@ def main():
 
     results = {}
 
+    # 1. Jalankan SDY Lotto & HK Lotto dulu agar proteksi anti-duplikat Pools selalu akurat
+    sdy_lotto_spec = next(m for m in MARKETS if m["id"] == "sdy_lotto")
     hk_lotto_spec = next(m for m in MARKETS if m["id"] == "hk_lotto")
+
+    sdy_lotto_draws = sync_single_market(sdy_lotto_spec, discovered, existing.get("sdy_lotto", []))
     hk_lotto_draws = sync_single_market(hk_lotto_spec, discovered, existing.get("hk_lotto", []))
+
+    results["sdy_lotto"] = sdy_lotto_draws
     results["hk_lotto"] = hk_lotto_draws
+
+    sdy_lotto_tail = [x[0] for x in sdy_lotto_draws[-3:]] if len(sdy_lotto_draws) >= 3 else []
     hk_lotto_tail = [x[0] for x in hk_lotto_draws[-3:]] if len(hk_lotto_draws) >= 3 else []
 
-    other_specs = [m for m in MARKETS if m["id"] != "hk_lotto"]
+    # 2. Jalankan 9 pasaran lainnya secara paralel ringan
+    other_specs = [m for m in MARKETS if m["id"] not in ("sdy_lotto", "hk_lotto")]
 
     def worker(spec):
-        forb = hk_lotto_tail if spec["id"] == "hk_pools" else []
+        forb = []
+        if spec["id"] == "hk_pools":
+            forb = hk_lotto_tail
+        elif spec["id"] == "sdy_pools":
+            forb = sdy_lotto_tail
         draws = sync_single_market(spec, discovered, existing.get(spec["id"], []), forbidden_tail=forb)
         return spec["id"], draws
 

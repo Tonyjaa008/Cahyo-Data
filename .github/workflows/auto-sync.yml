@@ -2,8 +2,8 @@ name: Auto Sync Data Pasaran
 
 on:
   schedule:
-    # Jalan otomatis tiap 10 menit dari 11:00 WIB s/d 01:59 WIB (04:00 - 18:59 UTC)
-    - cron: '*/10 4-18 * * *'
+    # Jalan otomatis tiap 5 menit dari 11:00 WIB s/d 01:59 WIB (12:00 - 02:59 WITA)
+    - cron: '*/5 4-18 * * *'
   workflow_dispatch:
 
 concurrency:
@@ -16,6 +16,7 @@ permissions:
 jobs:
   sync_data:
     runs-on: ubuntu-latest
+    timeout-minutes: 4
     steps:
       - name: 1. Checkout Repo
         uses: actions/checkout@v4

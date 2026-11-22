@@ -11,6 +11,11 @@ import requests
 import urllib3
 from bs4 import BeautifulSoup
 
+try:
+    from curl_cffi import requests as cffi_requests
+except Exception:
+    cffi_requests = None
+
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 WIB = timezone(timedelta(hours=7))
@@ -47,10 +52,10 @@ MARKETS = [
         "urls": [
             "https://datakeluaran7.com/data-sdy/",
             "https://datakeluaran.org/data-sdy/",
-            "https://datakeluaran7.com/data-keluaran-sdy/",
             "https://datatogellengkap.info/data-sydney/",
             "https://tabelpaito.com/data-keluaran-sdy/",
             "https://paitowarna4d.com/data-sdy/",
+            "https://datakeluaran7.com/data-keluaran-sdy/",
         ],
     },
     {
@@ -64,11 +69,11 @@ MARKETS = [
         "urls": [
             "https://datakeluaran7.com/data-sidney-lotto/",
             "https://datakeluaran.org/data-sdy-lotto/",
-            "https://datakeluaran7.com/data-sdy-lotto/",
             "https://datatogellengkap.info/data-sydney-lotto/",
-            "https://datakeluaran.org/data-sidney-lotto/",
             "https://tabelpaito.com/data-keluaran-sdy-lotto/",
             "https://paitowarna4d.com/data-sdy-lotto/",
+            "https://datakeluaran7.com/data-sdy-lotto/",
+            "https://datakeluaran.org/data-sidney-lotto/",
         ],
     },
     {
@@ -82,11 +87,11 @@ MARKETS = [
         "urls": [
             "https://datakeluaran7.com/data-hk-lotto/",
             "https://datakeluaran.org/data-hk-lotto/",
-            "https://datakeluaran7.com/data-hongkong-lotto/",
             "https://datatogellengkap.info/data-hongkong-lotto/",
-            "https://datakeluaran.org/data-hongkong-lotto/",
             "https://tabelpaito.com/data-keluaran-hk-lotto/",
             "https://paitowarna4d.com/data-hk-lotto/",
+            "https://datakeluaran7.com/data-hongkong-lotto/",
+            "https://datakeluaran.org/data-hongkong-lotto/",
         ],
     },
     {
@@ -104,16 +109,16 @@ MARKETS = [
         "urls": [
             "https://datakeluaran7.com/data-hk-pools/",
             "https://datakeluaran.org/data-hk-pools/",
-            "https://datakeluaran7.com/data-hongkong-pools/",
             "https://datatogellengkap.info/data-hongkong-pools/",
             "https://tabelpaito.com/data-keluaran-hk-pools/",
             "https://paitowarna4d.com/data-hk-pools/",
+            "https://datakeluaran7.com/data-hongkong-pools/",
             "https://datakeluaran7.com/data-hk/",
             "https://datakeluaran.org/data-hk/",
-            "https://datakeluaran7.com/data-keluaran-hk/",
             "https://datatogellengkap.info/data-hongkong/",
             "https://tabelpaito.com/data-keluaran-hk/",
             "https://paitowarna4d.com/data-hk/",
+            "https://datakeluaran7.com/data-keluaran-hk/",
         ],
     },
     {
@@ -129,10 +134,10 @@ MARKETS = [
         "urls": [
             "https://datakeluaran7.com/data-sgp/",
             "https://datakeluaran.org/data-sgp/",
-            "https://datakeluaran7.com/data-keluaran-sgp/",
             "https://datatogellengkap.info/data-sgp/",
             "https://tabelpaito.com/data-keluaran-sgp/",
             "https://paitowarna4d.com/data-sgp/",
+            "https://datakeluaran7.com/data-keluaran-sgp/",
         ],
     },
     {
@@ -146,10 +151,10 @@ MARKETS = [
         "urls": [
             "https://datakeluaran7.com/data-macau/",
             "https://datakeluaran.org/data-macau/",
-            "https://datakeluaran7.com/data-keluaran-macau/",
             "https://datatogellengkap.info/data-macau/",
             "https://tabelpaito.com/data-keluaran-macau/",
             "https://paitowarna4d.com/data-macau/",
+            "https://datakeluaran7.com/data-keluaran-macau/",
         ],
     },
     {
@@ -163,9 +168,10 @@ MARKETS = [
         "urls": [
             "https://datakeluaran7.com/data-cambodia/",
             "https://datakeluaran.org/data-cambodia/",
-            "https://datakeluaran7.com/data-keluaran-cambodia/",
             "https://datatogellengkap.info/data-cambodia-togel/",
             "https://tabelpaito.com/data-keluaran-cambodia/",
+            "https://paitowarna4d.com/data-cambodia/",
+            "https://datakeluaran7.com/data-keluaran-cambodia/",
         ],
     },
     {
@@ -181,15 +187,13 @@ MARKETS = [
         "newest_bottom": True,
         "urls": [
             "https://datakeluaran7.com/data-taiwan/",
-            "https://datakeluaran7.com/data-keluaran-taiwan/",
-            "https://datakeluaran7.com/data-taiwan-lotto/",
             "https://datakeluaran.org/data-taiwan/",
-            "https://datakeluaran.org/taiwan/",
             "https://datatogellengkap.info/data-taiwan/",
             "https://tabelpaito.com/data-keluaran-taiwan/",
             "https://paitowarna4d.com/data-taiwan/",
+            "https://datakeluaran7.com/data-keluaran-taiwan/",
+            "https://datakeluaran7.com/data-taiwan-lotto/",
             "https://rajapaito.info/data-taiwan/",
-            "https://paitopaman.com/data-taiwan/",
         ],
     },
     {
@@ -203,9 +207,10 @@ MARKETS = [
         "urls": [
             "https://datakeluaran7.com/data-china/",
             "https://datakeluaran.org/data-china/",
-            "https://datakeluaran7.com/data-keluaran-china/",
             "https://datatogellengkap.info/data-china/",
             "https://tabelpaito.com/data-keluaran-china/",
+            "https://paitowarna4d.com/data-china/",
+            "https://datakeluaran7.com/data-keluaran-china/",
         ],
     },
     {
@@ -242,14 +247,31 @@ MARKETS = [
         "urls": [
             "https://datakeluaran7.com/data-bullseye/",
             "https://datakeluaran.org/data-bullseye/",
-            "https://datakeluaran7.com/data-keluaran-bullseye/",
             "https://datatogellengkap.info/data-bullseye/",
             "https://tabelpaito.com/data-keluaran-bullseye/",
             "https://paitowarna4d.com/data-bullseye/",
+            "https://datakeluaran7.com/data-keluaran-bullseye/",
             "https://rajapaito.info/data-bullseye/",
         ],
     },
 ]
+
+
+def is_blocked_html(text: str) -> bool:
+    if not text or len(text) < 250:
+        return True
+    sample = text[:3500].lower()
+    block_markers = [
+        "just a moment...",
+        "cf-browser-verification",
+        "attention required! | cloudflare",
+        "enable javascript and cookies to continue",
+        "checking your browser before accessing",
+        "403 forbidden",
+        "404 not found",
+        "page not found",
+    ]
+    return any(m in sample for m in block_markers)
 
 
 def to_google_translate_proxy(original_url: str):
@@ -265,23 +287,52 @@ def to_google_translate_proxy(original_url: str):
         return None
 
 
-def fetch_raw_html(url: str, timeout: int = 8):
+def fetch_raw_html(url: str, timeout: int = 8, allow_proxies: bool = True):
     ts = int(time.time())
     sep = "&" if "?" in url else "?"
     bust_url = f"{url}{sep}_cb={ts}"
+
+    # 1. JALUR UTAMA: Direct Chrome TLS via curl_cffi (bebas proxy cache & cepat)
+    if cffi_requests is not None:
+        for target in (bust_url, url):
+            try:
+                resp = cffi_requests.get(
+                    target,
+                    headers=BASE_HEADERS,
+                    impersonate="chrome124",
+                    timeout=timeout,
+                    verify=False,
+                )
+                if 200 <= resp.status_code < 300 and not is_blocked_html(resp.text):
+                    return resp.text
+            except Exception:
+                continue
+
+    # 2. Direct requests standar
+    for target in (bust_url, url):
+        try:
+            resp = requests.get(target, headers=BASE_HEADERS, timeout=timeout, verify=False)
+            if 200 <= resp.status_code < 300 and not is_blocked_html(resp.text):
+                return resp.text
+        except Exception:
+            continue
+
+    if not allow_proxies:
+        return None
+
+    # 3. CADANGAN TERAKHIR: Proxy publik dengan anti-cache (hanya jika direct gagal)
     encoded_bust = urllib.parse.quote(bust_url, safe="")
     gtrans_fresh = to_google_translate_proxy(bust_url)
     jina_no_cache = {**BASE_HEADERS, "X-No-Cache": "true", "X-Cache-Tolerance": "0"}
 
-    attempts = [
-        ("direct", url, BASE_HEADERS),
+    proxy_attempts = [
         ("gtrans", gtrans_fresh, BASE_HEADERS) if gtrans_fresh else None,
         ("jina_html", f"https://r.jina.ai/{url}", {**jina_no_cache, "X-Return-Format": "html"}),
         ("allorigins", f"https://api.allorigins.win/get?url={encoded_bust}", BASE_HEADERS),
         ("codetabs", f"https://api.codetabs.com/v1/proxy?quest={encoded_bust}", BASE_HEADERS),
         ("jina_md", f"https://r.jina.ai/{url}", jina_no_cache),
     ]
-    for item in attempts:
+    for item in proxy_attempts:
         if not item:
             continue
         mode, req_url, headers = item
@@ -295,10 +346,11 @@ def fetch_raw_html(url: str, timeout: int = 8):
                 if contents.startswith("data:") and ";base64," in contents:
                     b64 = contents.split(";base64,", 1)[1].strip()
                     contents = base64.b64decode(b64).decode("utf-8", errors="ignore")
-                if len(contents) > 200:
+                if not is_blocked_html(contents):
                     return contents
             else:
-                return resp.text
+                if not is_blocked_html(resp.text):
+                    return resp.text
         except Exception:
             continue
     return None
@@ -311,7 +363,7 @@ def discover_homepage_links():
         "https://datakeluaran.org/",
     ]
     for home in homepages:
-        raw = fetch_raw_html(home, timeout=7)
+        raw = fetch_raw_html(home, timeout=7, allow_proxies=True)
         if not raw:
             continue
         try:
@@ -334,9 +386,7 @@ def discover_homepage_links():
                 if not href.startswith("http"):
                     continue
 
-                # Bersihkan parameter cache-busting bila ikut terbawa dari link terjemahan
                 href = re.sub(r"[?&]_cb=\d+", "", href)
-
                 combined = f"{href.lower()} {text}"
                 if any(x in combined for x in ["45", "metro", "siang", "sore", "pagi", "6d", "live", "prediksi"]):
                     continue
@@ -804,13 +854,19 @@ def compare_tail_sequences(list_a, list_b):
 def stitch_history(long_hist, fresh_tail):
     if len(fresh_tail) < 4:
         return long_hist
+    if not long_hist:
+        return fresh_tail
     tail_slice = fresh_tail[-200:]
-    for i in range(len(tail_slice) - 1):
+    # Cari jangkar 2 angka paling baru dari belakang ke depan agar penyambungan presisi
+    for i in range(len(tail_slice) - 2, -1, -1):
         a, b = tail_slice[i][0], tail_slice[i + 1][0]
         for j in range(len(long_hist) - 2, max(-1, len(long_hist) - 201), -1):
             if long_hist[j][0] == a and long_hist[j + 1][0] == b:
-                return long_hist[:j] + tail_slice[i:]
-    return fresh_tail if len(fresh_tail) >= 20 else long_hist
+                stitched = long_hist[:j] + tail_slice[i:]
+                if len(stitched) >= len(long_hist):
+                    return stitched
+                return long_hist
+    return fresh_tail if len(fresh_tail) >= len(long_hist) else long_hist
 
 
 def select_best_consensus(candidates, spec):
@@ -822,7 +878,6 @@ def select_best_consensus(candidates, spec):
     best_score = -1e9
 
     for i, c in enumerate(candidates):
-        # Batasi bonus panjang riwayat (maks 10 poin) agar situs yang lebih update selalu menang
         score = min(len(c["draws"]), 1000) * 0.01
         if not spec["must_lotto"] and "pools" in c["url"].lower():
             score += 60.0
@@ -838,8 +893,8 @@ def select_best_consensus(candidates, spec):
             ok, extra = compare_tail_sequences(c["draws"], other["draws"])
             if ok:
                 score += 300.0
-                if 0 < extra <= 6:
-                    score += extra * 250.0
+                if 0 < extra <= 8:
+                    score += extra * 350.0
         if score > best_score:
             best_score = score
             best = c
@@ -856,7 +911,14 @@ def select_best_consensus(candidates, spec):
     return best["draws"], best["url"]
 
 
-def sync_single_market(spec, discovered_urls, existing_entries, forbidden_tail=None):
+def sync_single_market(
+    spec,
+    discovered_urls,
+    existing_entries,
+    forbidden_tail=None,
+    allow_proxies=True,
+    target_sites=4,
+):
     forbidden_tail = forbidden_tail or []
     if existing_entries:
         if matches_forbidden_tail(existing_entries, forbidden_tail):
@@ -877,7 +939,7 @@ def sync_single_market(spec, discovered_urls, existing_entries, forbidden_tail=N
         if spec["id"] != "hk_pools" and host in tried_hosts:
             continue
 
-        raw = fetch_raw_html(url, timeout=8)
+        raw = fetch_raw_html(url, timeout=8, allow_proxies=allow_proxies)
         if not raw:
             continue
         draws, latest_dt = parse_all_table_draws(raw, spec)
@@ -889,32 +951,34 @@ def sync_single_market(spec, discovered_urls, existing_entries, forbidden_tail=N
         valid_candidates.append({"url": url, "draws": draws, "latest_date": latest_dt})
         tried_hosts.add(host)
 
-        # Selalu kumpulkan hingga 3 situs berbeda agar situs yang paling cepat update selalu tertangkap
-        if len(valid_candidates) >= 3:
+        if len(valid_candidates) >= target_sites:
             break
 
     if not valid_candidates:
-        return existing_entries, "cache"
+        return existing_entries, "cache", False
 
     consensus, winner_url = select_best_consensus(valid_candidates, spec)
     winner_host = urllib.parse.urlparse(winner_url).netloc or "situs"
 
     if not existing_entries:
-        return consensus, winner_host
+        return consensus, winner_host, True
 
-    # Pengaman anti-rollback: jangan pernah mundur jika memori sudah lebih maju
     ok_mem, extra_in_consensus = compare_tail_sequences(consensus, existing_entries)
     if ok_mem and extra_in_consensus < 0:
-        return existing_entries, "cache-terbaru"
+        return existing_entries, f"cache-terbaru ({winner_host})", True
+    if ok_mem and extra_in_consensus == 0:
+        if len(consensus) > len(existing_entries) + 10:
+            return consensus, winner_host, True
+        return existing_entries, winner_host, True
 
     if len(consensus) >= len(existing_entries):
-        return consensus, winner_host
-    return stitch_history(existing_entries, consensus), winner_host
+        return consensus, winner_host, True
+    return stitch_history(existing_entries, consensus), winner_host, True
 
 
 def load_existing_data(path="data.json"):
     if not os.path.exists(path):
-        return {}
+        return {}, {}
     try:
         with open(path, "r", encoding="utf-8") as f:
             raw = json.load(f)
@@ -928,64 +992,115 @@ def load_existing_data(path="data.json"):
                         parsed.append((num, lbl))
             if parsed:
                 out[m_id] = parsed
-        return out
+        return out, raw.get("meta", {})
     except Exception:
-        return {}
+        return {}, {}
 
 
 def main():
-    existing = load_existing_data("data.json")
-    discovered = discover_homepage_links()
+    existing, old_meta = load_existing_data("data.json")
+    now_wib_str = datetime.now(WIB).strftime("%Y-%m-%d %H:%M:%S WIB")
 
     results = {}
     sources = {}
+    live_ok = {}
 
+    # =========================================================================
+    # TAHAP 1: Penarikan Langsung Cepat (curl_cffi tanpa membebani proxy publik)
+    # =========================================================================
     sdy_lotto_spec = next(m for m in MARKETS if m["id"] == "sdy_lotto")
     hk_lotto_spec = next(m for m in MARKETS if m["id"] == "hk_lotto")
 
-    sdy_lotto_draws, sdy_lotto_src = sync_single_market(
-        sdy_lotto_spec, discovered, existing.get("sdy_lotto", [])
-    )
-    hk_lotto_draws, hk_lotto_src = sync_single_market(
-        hk_lotto_spec, discovered, existing.get("hk_lotto", [])
-    )
+    for lotto_spec in (sdy_lotto_spec, hk_lotto_spec):
+        draws, src, ok = sync_single_market(
+            lotto_spec, {}, existing.get(lotto_spec["id"], []), allow_proxies=False, target_sites=4
+        )
+        results[lotto_spec["id"]] = draws
+        sources[lotto_spec["id"]] = src
+        live_ok[lotto_spec["id"]] = ok
 
-    results["sdy_lotto"] = sdy_lotto_draws
-    sources["sdy_lotto"] = sdy_lotto_src
-    results["hk_lotto"] = hk_lotto_draws
-    sources["hk_lotto"] = hk_lotto_src
-
-    sdy_lotto_tail = [x[0] for x in sdy_lotto_draws[-3:]] if len(sdy_lotto_draws) >= 3 else []
-    hk_lotto_tail = [x[0] for x in hk_lotto_draws[-3:]] if len(hk_lotto_draws) >= 3 else []
+    sdy_lotto_tail = [x[0] for x in results["sdy_lotto"][-3:]] if len(results["sdy_lotto"]) >= 3 else []
+    hk_lotto_tail = [x[0] for x in results["hk_lotto"][-3:]] if len(results["hk_lotto"]) >= 3 else []
 
     other_specs = [m for m in MARKETS if m["id"] not in ("sdy_lotto", "hk_lotto")]
 
-    def worker(spec):
-        forb = []
-        if spec["id"] == "hk_pools":
-            forb = hk_lotto_tail
-        elif spec["id"] == "sdy_pools":
-            forb = sdy_lotto_tail
-        draws, src = sync_single_market(
-            spec, discovered, existing.get(spec["id"], []), forbidden_tail=forb
+    def worker_fast(spec):
+        forb = hk_lotto_tail if spec["id"] == "hk_pools" else (sdy_lotto_tail if spec["id"] == "sdy_pools" else [])
+        draws, src, ok = sync_single_market(
+            spec, {}, existing.get(spec["id"], []), forbidden_tail=forb, allow_proxies=False, target_sites=4
         )
-        return spec["id"], draws, src
+        return spec["id"], draws, src, ok
 
     with ThreadPoolExecutor(max_workers=4) as pool:
-        for m_id, draws, src in pool.map(worker, other_specs):
+        for m_id, draws, src, ok in pool.map(worker_fast, other_specs):
             results[m_id] = draws
             sources[m_id] = src
+            live_ok[m_id] = ok
 
+    # =========================================================================
+    # TAHAP 2: Auto-Retry Khusus Pasaran yang Gagal (Homepage Discovery + Proxy)
+    # =========================================================================
+    failed_specs = [m for m in MARKETS if not live_ok.get(m["id"], False)]
+    if failed_specs:
+        print(f"[RETRY] Menjalankan cadangan proxy untuk {len(failed_specs)} pasaran: {[m['id'] for m in failed_specs]}")
+        discovered = discover_homepage_links()
+
+        # Pastikan lotto yang gagal di-retry dulu sebelum pools
+        failed_specs.sort(key=lambda s: 0 if s["must_lotto"] else 1)
+
+        for spec in failed_specs:
+            sdy_lotto_tail = [x[0] for x in results.get("sdy_lotto", [])[-3:]]
+            hk_lotto_tail = [x[0] for x in results.get("hk_lotto", [])[-3:]]
+            forb = hk_lotto_tail if spec["id"] == "hk_pools" else (sdy_lotto_tail if spec["id"] == "sdy_pools" else [])
+            draws, src, ok = sync_single_market(
+                spec, discovered, existing.get(spec["id"], []), forbidden_tail=forb, allow_proxies=True, target_sites=3
+            )
+            if ok or not results.get(spec["id"]):
+                results[spec["id"]] = draws
+                sources[spec["id"]] = src
+                live_ok[spec["id"]] = ok
+
+    # =========================================================================
+    # SIMPAN HASIL & LAPORAN RINGKASAN 11 PASARAN
+    # =========================================================================
     serialized_markets = {}
+    new_meta = {}
+    ok_live_count = 0
+    changed_count = 0
+
     for spec in MARKETS:
         m_id = spec["id"]
         draws = results.get(m_id) or existing.get(m_id) or []
+        prev_draws = existing.get(m_id) or []
+        is_live = live_ok.get(m_id, False)
+        if is_live:
+            ok_live_count += 1
+
         if draws:
             serialized_markets[m_id] = [f"{num}|{lbl}" for num, lbl in draws]
             src = sources.get(m_id, "-")
-            print(f"[OK] {spec['name']}: {len(draws)} periode | Terbaru: {draws[-1][0]} ({draws[-1][1]}) [{src}]")
+            prev_last = prev_draws[-1][0] if prev_draws else ""
+            curr_last = draws[-1][0]
+            has_new = (curr_last != prev_last) or (len(draws) != len(prev_draws))
+            if has_new:
+                changed_count += 1
+
+            prev_changed = old_meta.get(m_id, {}).get("changed_at_wib", now_wib_str)
+            tag = "BARU" if has_new else ("LIVE" if is_live else "CACHE")
+            new_meta[m_id] = {
+                "latest": curr_last,
+                "label": draws[-1][1],
+                "count": len(draws),
+                "source": src,
+                "checked_at_wib": now_wib_str,
+                "changed_at_wib": now_wib_str if has_new else prev_changed,
+                "status": tag,
+            }
+            print(f"[{tag}] {spec['name']}: {len(draws)} periode | Terbaru: {curr_last} ({draws[-1][1]}) [{src}]")
         else:
-            print(f"[WARN] {spec['name']}: belum ada data")
+            print(f"[GAGAL] {spec['name']}: belum ada data")
+
+    print(f"Ringkasan: {ok_live_count}/{len(MARKETS)} pasaran berhasil sinkron live | {changed_count} pasaran berubah.")
 
     old_serialized = {
         m_id: [f"{num}|{lbl}" for num, lbl in draws]
@@ -993,20 +1108,20 @@ def main():
     }
 
     if serialized_markets == old_serialized and os.path.exists("data.json"):
-        print("Tidak ada keluaran baru. Melewati penyimpanan.")
+        print("Tidak ada keluaran baru. Melewati commit.")
         return
 
-    now_wib = datetime.now(WIB)
     payload = {
-        "version": 1,
-        "updated_at_wib": now_wib.strftime("%Y-%m-%d %H:%M:%S WIB"),
+        "version": 2,
+        "updated_at_wib": now_wib_str,
         "updated_ts": int(time.time()),
+        "meta": new_meta,
         "markets": serialized_markets,
     }
 
     with open("data.json", "w", encoding="utf-8") as f:
         json.dump(payload, f, ensure_ascii=False, separators=(",", ":"))
-    print(f"data.json berhasil diperbarui pada {payload['updated_at_wib']}")
+    print(f"data.json berhasil diperbarui pada {now_wib_str}")
 
 
 if __name__ == "__main__":

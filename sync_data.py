@@ -2,6 +2,7 @@ import base64
 import json
 import os
 import re
+import threading
 import time
 import urllib.parse
 from concurrent.futures import ThreadPoolExecutor
@@ -40,6 +41,9 @@ BASE_HEADERS = {
     "Pragma": "no-cache",
 }
 
+HOST_FAIL_LOCK = threading.Lock()
+HOST_FAIL_COUNTS = {}
+
 MARKETS = [
     {
         "id": "sdy_pools",
@@ -51,8 +55,8 @@ MARKETS = [
         "newest_bottom": True,
         "urls": [
             "https://datakeluaran7.com/data-sdy/",
-            "https://datakeluaran.org/data-sdy/",
             "https://datatogellengkap.info/data-sydney/",
+            "https://datakeluaran.org/data-sdy/",
             "https://tabelpaito.com/data-keluaran-sdy/",
             "https://paitowarna4d.com/data-sdy/",
             "https://datakeluaran7.com/data-keluaran-sdy/",
@@ -68,12 +72,11 @@ MARKETS = [
         "newest_bottom": True,
         "urls": [
             "https://datakeluaran7.com/data-sidney-lotto/",
-            "https://datakeluaran.org/data-sdy-lotto/",
             "https://datatogellengkap.info/data-sydney-lotto/",
+            "https://datakeluaran7.com/data-sdy-lotto/",
+            "https://datakeluaran.org/data-sdy-lotto/",
             "https://tabelpaito.com/data-keluaran-sdy-lotto/",
             "https://paitowarna4d.com/data-sdy-lotto/",
-            "https://datakeluaran7.com/data-sdy-lotto/",
-            "https://datakeluaran.org/data-sidney-lotto/",
         ],
     },
     {
@@ -86,12 +89,11 @@ MARKETS = [
         "newest_bottom": True,
         "urls": [
             "https://datakeluaran7.com/data-hk-lotto/",
-            "https://datakeluaran.org/data-hk-lotto/",
             "https://datatogellengkap.info/data-hongkong-lotto/",
+            "https://datakeluaran7.com/data-hongkong-lotto/",
+            "https://datakeluaran.org/data-hk-lotto/",
             "https://tabelpaito.com/data-keluaran-hk-lotto/",
             "https://paitowarna4d.com/data-hk-lotto/",
-            "https://datakeluaran7.com/data-hongkong-lotto/",
-            "https://datakeluaran.org/data-hongkong-lotto/",
         ],
     },
     {
@@ -107,18 +109,14 @@ MARKETS = [
         "allow_lotto_word": False,
         "newest_bottom": True,
         "urls": [
+            "https://datatogellengkap.info/data-hongkong/",
             "https://datakeluaran7.com/data-hk-pools/",
-            "https://datakeluaran.org/data-hk-pools/",
             "https://datatogellengkap.info/data-hongkong-pools/",
+            "https://datakeluaran7.com/data-hk/",
+            "https://datakeluaran.org/data-hk-pools/",
+            "https://datakeluaran.org/data-hk/",
             "https://tabelpaito.com/data-keluaran-hk-pools/",
             "https://paitowarna4d.com/data-hk-pools/",
-            "https://datakeluaran7.com/data-hongkong-pools/",
-            "https://datakeluaran7.com/data-hk/",
-            "https://datakeluaran.org/data-hk/",
-            "https://datatogellengkap.info/data-hongkong/",
-            "https://tabelpaito.com/data-keluaran-hk/",
-            "https://paitowarna4d.com/data-hk/",
-            "https://datakeluaran7.com/data-keluaran-hk/",
         ],
     },
     {
@@ -133,8 +131,8 @@ MARKETS = [
         "newest_bottom": True,
         "urls": [
             "https://datakeluaran7.com/data-sgp/",
-            "https://datakeluaran.org/data-sgp/",
             "https://datatogellengkap.info/data-sgp/",
+            "https://datakeluaran.org/data-sgp/",
             "https://tabelpaito.com/data-keluaran-sgp/",
             "https://paitowarna4d.com/data-sgp/",
             "https://datakeluaran7.com/data-keluaran-sgp/",
@@ -149,12 +147,11 @@ MARKETS = [
         "allow_lotto_word": False,
         "newest_bottom": False,
         "urls": [
+            "https://datatogellengkap.info/data-macau/",
             "https://datakeluaran7.com/data-macau/",
             "https://datakeluaran.org/data-macau/",
-            "https://datatogellengkap.info/data-macau/",
             "https://tabelpaito.com/data-keluaran-macau/",
             "https://paitowarna4d.com/data-macau/",
-            "https://datakeluaran7.com/data-keluaran-macau/",
         ],
     },
     {
@@ -167,11 +164,10 @@ MARKETS = [
         "newest_bottom": True,
         "urls": [
             "https://datakeluaran7.com/data-cambodia/",
-            "https://datakeluaran.org/data-cambodia/",
             "https://datatogellengkap.info/data-cambodia-togel/",
+            "https://datakeluaran.org/data-cambodia/",
             "https://tabelpaito.com/data-keluaran-cambodia/",
             "https://paitowarna4d.com/data-cambodia/",
-            "https://datakeluaran7.com/data-keluaran-cambodia/",
         ],
     },
     {
@@ -187,13 +183,11 @@ MARKETS = [
         "newest_bottom": True,
         "urls": [
             "https://datakeluaran7.com/data-taiwan/",
-            "https://datakeluaran.org/data-taiwan/",
             "https://datatogellengkap.info/data-taiwan/",
+            "https://datakeluaran.org/data-taiwan/",
             "https://tabelpaito.com/data-keluaran-taiwan/",
             "https://paitowarna4d.com/data-taiwan/",
-            "https://datakeluaran7.com/data-keluaran-taiwan/",
             "https://datakeluaran7.com/data-taiwan-lotto/",
-            "https://rajapaito.info/data-taiwan/",
         ],
     },
     {
@@ -206,11 +200,10 @@ MARKETS = [
         "newest_bottom": True,
         "urls": [
             "https://datakeluaran7.com/data-china/",
-            "https://datakeluaran.org/data-china/",
             "https://datatogellengkap.info/data-china/",
+            "https://datakeluaran.org/data-china/",
             "https://tabelpaito.com/data-keluaran-china/",
             "https://paitowarna4d.com/data-china/",
-            "https://datakeluaran7.com/data-keluaran-china/",
         ],
     },
     {
@@ -230,10 +223,8 @@ MARKETS = [
             "https://datalaporan.com/",
             "https://japanloto.asia/",
             "https://livedrawjapan.pro/",
-            "https://tabelpaito.com/data-keluaran-japan/",
             "https://datatogellengkap.info/data-japan/",
-            "https://paitowarna4d.com/data-japan/",
-            "https://datakeluaran.org/data-japan/",
+            "https://tabelpaito.com/data-keluaran-japan/",
         ],
     },
     {
@@ -246,12 +237,10 @@ MARKETS = [
         "newest_bottom": True,
         "urls": [
             "https://datakeluaran7.com/data-bullseye/",
-            "https://datakeluaran.org/data-bullseye/",
             "https://datatogellengkap.info/data-bullseye/",
+            "https://datakeluaran.org/data-bullseye/",
             "https://tabelpaito.com/data-keluaran-bullseye/",
             "https://paitowarna4d.com/data-bullseye/",
-            "https://datakeluaran7.com/data-keluaran-bullseye/",
-            "https://rajapaito.info/data-bullseye/",
         ],
     },
 ]
@@ -274,6 +263,21 @@ def is_blocked_html(text: str) -> bool:
     return any(m in sample for m in block_markers)
 
 
+def is_host_dead(host: str) -> bool:
+    with HOST_FAIL_LOCK:
+        return HOST_FAIL_COUNTS.get(host, 0) >= 3
+
+
+def record_host_timeout(host: str):
+    with HOST_FAIL_LOCK:
+        HOST_FAIL_COUNTS[host] = HOST_FAIL_COUNTS.get(host, 0) + 1
+
+
+def record_host_ok(host: str):
+    with HOST_FAIL_LOCK:
+        HOST_FAIL_COUNTS[host] = 0
+
+
 def to_google_translate_proxy(original_url: str):
     try:
         parsed = urllib.parse.urlparse(original_url)
@@ -287,40 +291,55 @@ def to_google_translate_proxy(original_url: str):
         return None
 
 
-def fetch_raw_html(url: str, timeout: int = 8, allow_proxies: bool = True):
+def fetch_raw_html(url: str, timeout: int = 5, allow_proxies: bool = True):
+    host = urllib.parse.urlparse(url).netloc
+    if not allow_proxies and is_host_dead(host):
+        return None
+
     ts = int(time.time())
     sep = "&" if "?" in url else "?"
     bust_url = f"{url}{sep}_cb={ts}"
 
-    # 1. JALUR UTAMA: Direct Chrome TLS via curl_cffi (bebas proxy cache & cepat)
+    # 1. JALUR UTAMA: Direct Chrome TLS via curl_cffi (1 tembakan cepat, bebas cache)
     if cffi_requests is not None:
-        for target in (bust_url, url):
-            try:
-                resp = cffi_requests.get(
-                    target,
+        try:
+            resp = cffi_requests.get(
+                bust_url,
+                headers=BASE_HEADERS,
+                impersonate="chrome124",
+                timeout=timeout,
+                verify=False,
+            )
+            if 200 <= resp.status_code < 300 and not is_blocked_html(resp.text):
+                record_host_ok(host)
+                return resp.text
+            # Jika situs menolak parameter query ?_cb=, coba URL polos sekali
+            if resp.status_code in (400, 403, 404, 406):
+                resp2 = cffi_requests.get(
+                    url,
                     headers=BASE_HEADERS,
                     impersonate="chrome124",
                     timeout=timeout,
                     verify=False,
                 )
-                if 200 <= resp.status_code < 300 and not is_blocked_html(resp.text):
-                    return resp.text
-            except Exception:
-                continue
-
-    # 2. Direct requests standar
-    for target in (bust_url, url):
+                if 200 <= resp2.status_code < 300 and not is_blocked_html(resp2.text):
+                    record_host_ok(host)
+                    return resp2.text
+        except Exception:
+            record_host_timeout(host)
+    else:
         try:
-            resp = requests.get(target, headers=BASE_HEADERS, timeout=timeout, verify=False)
+            resp = requests.get(bust_url, headers=BASE_HEADERS, timeout=timeout, verify=False)
             if 200 <= resp.status_code < 300 and not is_blocked_html(resp.text):
+                record_host_ok(host)
                 return resp.text
         except Exception:
-            continue
+            record_host_timeout(host)
 
     if not allow_proxies:
         return None
 
-    # 3. CADANGAN TERAKHIR: Proxy publik dengan anti-cache (hanya jika direct gagal)
+    # 2. CADANGAN TERAKHIR: 3 proxy tercepat dengan anti-cache (hanya saat Tahap 2)
     encoded_bust = urllib.parse.quote(bust_url, safe="")
     gtrans_fresh = to_google_translate_proxy(bust_url)
     jina_no_cache = {**BASE_HEADERS, "X-No-Cache": "true", "X-Cache-Tolerance": "0"}
@@ -329,15 +348,13 @@ def fetch_raw_html(url: str, timeout: int = 8, allow_proxies: bool = True):
         ("gtrans", gtrans_fresh, BASE_HEADERS) if gtrans_fresh else None,
         ("jina_html", f"https://r.jina.ai/{url}", {**jina_no_cache, "X-Return-Format": "html"}),
         ("allorigins", f"https://api.allorigins.win/get?url={encoded_bust}", BASE_HEADERS),
-        ("codetabs", f"https://api.codetabs.com/v1/proxy?quest={encoded_bust}", BASE_HEADERS),
-        ("jina_md", f"https://r.jina.ai/{url}", jina_no_cache),
     ]
     for item in proxy_attempts:
         if not item:
             continue
         mode, req_url, headers = item
         try:
-            resp = requests.get(req_url, headers=headers, timeout=timeout, verify=False)
+            resp = requests.get(req_url, headers=headers, timeout=6, verify=False)
             if resp.status_code < 200 or resp.status_code >= 300 or len(resp.text) < 200:
                 continue
             if mode == "allorigins":
@@ -360,10 +377,10 @@ def discover_homepage_links():
     discovered = {m["id"]: [] for m in MARKETS}
     homepages = [
         "https://datakeluaran7.com/",
-        "https://datakeluaran.org/",
+        "https://datatogellengkap.info/",
     ]
     for home in homepages:
-        raw = fetch_raw_html(home, timeout=7, allow_proxies=True)
+        raw = fetch_raw_html(home, timeout=6, allow_proxies=True)
         if not raw:
             continue
         try:
@@ -555,7 +572,10 @@ def extract_calendar_row(cells, headers, default_year, max_cols, is_macau=False,
 
         draw_counter += 1
         col_label = ""
-        if c < len(headers):
+        if row_date is not None and not is_macau:
+            # Hitung nama hari persis dari tanggal asli (anti-meleset)
+            col_label = DAYS_7[row_date.weekday()]
+        elif c < len(headers):
             h = headers[c].strip()
             if h and "tanggal" not in h.lower() and "tahun" not in h.lower():
                 col_label = h
@@ -585,7 +605,10 @@ def extract_vertical_row(cells, default_year):
             meta_parts = [x.strip() for x in cells[:c] if x.strip()][:2]
             meta = " • ".join(meta_parts) if meta_parts else f"Periode ({default_year})"
             dt = try_parse_date(meta, default_year)
-            p_m = re.search(r"[-#](\d{3,5})\b", meta)
+            if dt:
+                day_name = DAYS_7[dt.weekday()]
+                meta = f"{day_name} ({dt.strftime('%d-%m-%Y')})"
+            p_m = re.search(r"[-#](\d{3,5})\b", " ".join(meta_parts))
             p_num = int(p_m.group(1)) if p_m else None
             return dt, p_num, (num4d, meta)
     return None
@@ -857,7 +880,6 @@ def stitch_history(long_hist, fresh_tail):
     if not long_hist:
         return fresh_tail
     tail_slice = fresh_tail[-200:]
-    # Cari jangkar 2 angka paling baru dari belakang ke depan agar penyambungan presisi
     for i in range(len(tail_slice) - 2, -1, -1):
         a, b = tail_slice[i][0], tail_slice[i + 1][0]
         for j in range(len(long_hist) - 2, max(-1, len(long_hist) - 201), -1):
@@ -874,17 +896,20 @@ def select_best_consensus(candidates, spec):
         return candidates[0]["draws"], candidates[0]["url"]
 
     now = datetime.now()
+    is_macau = spec["id"] == "ttm"
     best = candidates[0]
     best_score = -1e9
 
     for i, c in enumerate(candidates):
-        score = min(len(c["draws"]), 1000) * 0.01
+        score = min(len(c["draws"]), 1500) * 0.02
         if not spec["must_lotto"] and "pools" in c["url"].lower():
             score += 60.0
         if c["latest_date"]:
             days_old = abs((now - c["latest_date"]).days)
+            # Cegah cuplikan pendek (<300 baris seperti SGP 129 baris) mengalahkan arsip 2000+ baris
             if days_old <= 2:
-                score += 500.0 - (days_old * 40.0)
+                date_bonus = 500.0 if (is_macau or len(c["draws"]) >= 300) else 80.0
+                score += date_bonus - (days_old * 20.0)
             elif days_old > 15:
                 score -= 700.0
         for j, other in enumerate(candidates):
@@ -894,20 +919,20 @@ def select_best_consensus(candidates, spec):
             if ok:
                 score += 300.0
                 if 0 < extra <= 8:
-                    score += extra * 350.0
+                    score += extra * 400.0
         if score > best_score:
             best_score = score
             best = c
 
-    longest = best
-    for c in candidates:
-        if len(c["draws"]) > len(longest["draws"]) + 25:
-            ok, extra = compare_tail_sequences(best["draws"], c["draws"])
-            if ok and extra >= 0:
-                longest = c
+    # Selalu sambungkan arsip terpanjang dengan ekor dari situs paling update
+    longest = max(candidates, key=lambda x: len(x["draws"]))
+    if longest is not best and len(longest["draws"]) > len(best["draws"]) + 25:
+        ok, extra = compare_tail_sequences(best["draws"], longest["draws"])
+        if ok and extra >= 0:
+            return stitch_history(longest["draws"], best["draws"]), best["url"]
+        if ok and extra < 0:
+            return longest["draws"], longest["url"]
 
-    if longest is not best:
-        return stitch_history(longest["draws"], best["draws"]), best["url"]
     return best["draws"], best["url"]
 
 
@@ -915,9 +940,10 @@ def sync_single_market(
     spec,
     discovered_urls,
     existing_entries,
+    saved_winner_url="",
     forbidden_tail=None,
     allow_proxies=True,
-    target_sites=4,
+    target_sites=2,
 ):
     forbidden_tail = forbidden_tail or []
     if existing_entries:
@@ -927,6 +953,9 @@ def sync_single_market(
             existing_entries = []
 
     candidate_urls = []
+    # Dahulukan URL pemenang dari run sebelumnya agar langsung tembak di percobaan #1
+    if saved_winner_url and saved_winner_url.startswith("http"):
+        candidate_urls.append(saved_winner_url)
     for u in discovered_urls.get(spec["id"], []) + spec["urls"]:
         if u and u not in candidate_urls:
             candidate_urls.append(u)
@@ -939,7 +968,7 @@ def sync_single_market(
         if spec["id"] != "hk_pools" and host in tried_hosts:
             continue
 
-        raw = fetch_raw_html(url, timeout=8, allow_proxies=allow_proxies)
+        raw = fetch_raw_html(url, timeout=5, allow_proxies=allow_proxies)
         if not raw:
             continue
         draws, latest_dt = parse_all_table_draws(raw, spec)
@@ -955,25 +984,33 @@ def sync_single_market(
             break
 
     if not valid_candidates:
-        return existing_entries, "cache", False
+        return existing_entries, "cache", saved_winner_url, False
 
     consensus, winner_url = select_best_consensus(valid_candidates, spec)
     winner_host = urllib.parse.urlparse(winner_url).netloc or "situs"
 
     if not existing_entries:
-        return consensus, winner_host, True
+        return consensus, winner_host, winner_url, True
+
+    # Pulihkan arsip panjang (misal Singapore yang sempat tersimpan 129 periode -> kembali 2060+)
+    if len(existing_entries) < 500 and len(consensus) >= 1000:
+        ok_rec, extra_rec = compare_tail_sequences(consensus, existing_entries)
+        if ok_rec and extra_rec >= 0:
+            return consensus, winner_host, winner_url, True
+        if ok_rec and extra_rec < 0:
+            return stitch_history(consensus, existing_entries), winner_host, winner_url, True
 
     ok_mem, extra_in_consensus = compare_tail_sequences(consensus, existing_entries)
     if ok_mem and extra_in_consensus < 0:
-        return existing_entries, f"cache-terbaru ({winner_host})", True
+        return existing_entries, f"cache-terbaru ({winner_host})", winner_url, True
     if ok_mem and extra_in_consensus == 0:
         if len(consensus) > len(existing_entries) + 10:
-            return consensus, winner_host, True
-        return existing_entries, winner_host, True
+            return consensus, winner_host, winner_url, True
+        return existing_entries, winner_host, winner_url, True
 
     if len(consensus) >= len(existing_entries):
-        return consensus, winner_host, True
-    return stitch_history(existing_entries, consensus), winner_host, True
+        return consensus, winner_host, winner_url, True
+    return stitch_history(existing_entries, consensus), winner_host, winner_url, True
 
 
 def load_existing_data(path="data.json"):
@@ -1003,21 +1040,25 @@ def main():
 
     results = {}
     sources = {}
+    winner_urls = {}
     live_ok = {}
 
     # =========================================================================
-    # TAHAP 1: Penarikan Langsung Cepat (curl_cffi tanpa membebani proxy publik)
+    # TAHAP 1: Penarikan Langsung Cepat (curl_cffi, 2 situs pembanding, 6 worker)
     # =========================================================================
     sdy_lotto_spec = next(m for m in MARKETS if m["id"] == "sdy_lotto")
     hk_lotto_spec = next(m for m in MARKETS if m["id"] == "hk_lotto")
 
     for lotto_spec in (sdy_lotto_spec, hk_lotto_spec):
-        draws, src, ok = sync_single_market(
-            lotto_spec, {}, existing.get(lotto_spec["id"], []), allow_proxies=False, target_sites=4
+        m_id = lotto_spec["id"]
+        saved_u = old_meta.get(m_id, {}).get("winner_url", "")
+        draws, src, w_url, ok = sync_single_market(
+            lotto_spec, {}, existing.get(m_id, []), saved_winner_url=saved_u, allow_proxies=False, target_sites=2
         )
-        results[lotto_spec["id"]] = draws
-        sources[lotto_spec["id"]] = src
-        live_ok[lotto_spec["id"]] = ok
+        results[m_id] = draws
+        sources[m_id] = src
+        winner_urls[m_id] = w_url
+        live_ok[m_id] = ok
 
     sdy_lotto_tail = [x[0] for x in results["sdy_lotto"][-3:]] if len(results["sdy_lotto"]) >= 3 else []
     hk_lotto_tail = [x[0] for x in results["hk_lotto"][-3:]] if len(results["hk_lotto"]) >= 3 else []
@@ -1025,40 +1066,59 @@ def main():
     other_specs = [m for m in MARKETS if m["id"] not in ("sdy_lotto", "hk_lotto")]
 
     def worker_fast(spec):
-        forb = hk_lotto_tail if spec["id"] == "hk_pools" else (sdy_lotto_tail if spec["id"] == "sdy_pools" else [])
-        draws, src, ok = sync_single_market(
-            spec, {}, existing.get(spec["id"], []), forbidden_tail=forb, allow_proxies=False, target_sites=4
+        m_id = spec["id"]
+        saved_u = old_meta.get(m_id, {}).get("winner_url", "")
+        forb = hk_lotto_tail if m_id == "hk_pools" else (sdy_lotto_tail if m_id == "sdy_pools" else [])
+        draws, src, w_url, ok = sync_single_market(
+            spec,
+            {},
+            existing.get(m_id, []),
+            saved_winner_url=saved_u,
+            forbidden_tail=forb,
+            allow_proxies=False,
+            target_sites=2,
         )
-        return spec["id"], draws, src, ok
+        return m_id, draws, src, w_url, ok
 
-    with ThreadPoolExecutor(max_workers=4) as pool:
-        for m_id, draws, src, ok in pool.map(worker_fast, other_specs):
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        for m_id, draws, src, w_url, ok in pool.map(worker_fast, other_specs):
             results[m_id] = draws
             sources[m_id] = src
+            winner_urls[m_id] = w_url
             live_ok[m_id] = ok
 
     # =========================================================================
-    # TAHAP 2: Auto-Retry Khusus Pasaran yang Gagal (Homepage Discovery + Proxy)
+    # TAHAP 2: Auto-Retry Khusus Pasaran Gagal / SGP yang Arsipnya Masih Pendek
     # =========================================================================
-    failed_specs = [m for m in MARKETS if not live_ok.get(m["id"], False)]
-    if failed_specs:
-        print(f"[RETRY] Menjalankan cadangan proxy untuk {len(failed_specs)} pasaran: {[m['id'] for m in failed_specs]}")
+    retry_specs = [
+        m for m in MARKETS
+        if (not live_ok.get(m["id"], False))
+        or (m["id"] == "sgp" and len(results.get("sgp", [])) < 500)
+    ]
+    if retry_specs:
+        print(f"[RETRY] Menjalankan cadangan proxy untuk {len(retry_specs)} pasaran: {[m['id'] for m in retry_specs]}")
         discovered = discover_homepage_links()
+        retry_specs.sort(key=lambda s: 0 if s["must_lotto"] else 1)
 
-        # Pastikan lotto yang gagal di-retry dulu sebelum pools
-        failed_specs.sort(key=lambda s: 0 if s["must_lotto"] else 1)
-
-        for spec in failed_specs:
+        for spec in retry_specs:
+            m_id = spec["id"]
             sdy_lotto_tail = [x[0] for x in results.get("sdy_lotto", [])[-3:]]
             hk_lotto_tail = [x[0] for x in results.get("hk_lotto", [])[-3:]]
-            forb = hk_lotto_tail if spec["id"] == "hk_pools" else (sdy_lotto_tail if spec["id"] == "sdy_pools" else [])
-            draws, src, ok = sync_single_market(
-                spec, discovered, existing.get(spec["id"], []), forbidden_tail=forb, allow_proxies=True, target_sites=3
+            forb = hk_lotto_tail if m_id == "hk_pools" else (sdy_lotto_tail if m_id == "sdy_pools" else [])
+            draws, src, w_url, ok = sync_single_market(
+                spec,
+                discovered,
+                results.get(m_id) or existing.get(m_id, []),
+                saved_winner_url=old_meta.get(m_id, {}).get("winner_url", ""),
+                forbidden_tail=forb,
+                allow_proxies=True,
+                target_sites=2,
             )
-            if ok or not results.get(spec["id"]):
-                results[spec["id"]] = draws
-                sources[spec["id"]] = src
-                live_ok[spec["id"]] = ok
+            if ok or not results.get(m_id):
+                results[m_id] = draws
+                sources[m_id] = src
+                winner_urls[m_id] = w_url
+                live_ok[m_id] = ok
 
     # =========================================================================
     # SIMPAN HASIL & LAPORAN RINGKASAN 11 PASARAN
@@ -1079,6 +1139,7 @@ def main():
         if draws:
             serialized_markets[m_id] = [f"{num}|{lbl}" for num, lbl in draws]
             src = sources.get(m_id, "-")
+            w_url = winner_urls.get(m_id, old_meta.get(m_id, {}).get("winner_url", ""))
             prev_last = prev_draws[-1][0] if prev_draws else ""
             curr_last = draws[-1][0]
             has_new = (curr_last != prev_last) or (len(draws) != len(prev_draws))
@@ -1092,6 +1153,7 @@ def main():
                 "label": draws[-1][1],
                 "count": len(draws),
                 "source": src,
+                "winner_url": w_url,
                 "checked_at_wib": now_wib_str,
                 "changed_at_wib": now_wib_str if has_new else prev_changed,
                 "status": tag,

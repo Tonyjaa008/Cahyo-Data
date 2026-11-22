@@ -265,7 +265,7 @@ def is_blocked_html(text: str) -> bool:
 
 def is_host_dead(host: str) -> bool:
     with HOST_FAIL_LOCK:
-        return HOST_FAIL_COUNTS.get(host, 0) >= 3
+        return HOST_FAIL_COUNTS.get(host, 0) >= 2
 
 
 def record_host_timeout(host: str):
@@ -300,7 +300,7 @@ def fetch_raw_html(url: str, timeout: int = 5, allow_proxies: bool = True):
     sep = "&" if "?" in url else "?"
     bust_url = f"{url}{sep}_cb={ts}"
 
-    # 1. JALUR UTAMA: Direct Chrome TLS via curl_cffi (1 tembakan cepat, bebas cache)
+    # 1. JALUR UTAMA: Direct Chrome TLS via curl_cffi (segar tanpa cache proxy)
     if cffi_requests is not None:
         try:
             resp = cffi_requests.get(
@@ -313,18 +313,17 @@ def fetch_raw_html(url: str, timeout: int = 5, allow_proxies: bool = True):
             if 200 <= resp.status_code < 300 and not is_blocked_html(resp.text):
                 record_host_ok(host)
                 return resp.text
-            # Jika situs menolak parameter query ?_cb=, coba URL polos sekali
-            if resp.status_code in (400, 403, 404, 406):
-                resp2 = cffi_requests.get(
-                    url,
-                    headers=BASE_HEADERS,
-                    impersonate="chrome124",
-                    timeout=timeout,
-                    verify=False,
-                )
-                if 200 <= resp2.status_code < 300 and not is_blocked_html(resp2.text):
-                    record_host_ok(host)
-                    return resp2.text
+            # Jika query ?_cb= ditolak atau memicu challenge, coba URL polos sekali
+            resp2 = cffi_requests.get(
+                url,
+                headers=BASE_HEADERS,
+                impersonate="chrome124",
+                timeout=timeout,
+                verify=False,
+            )
+            if 200 <= resp2.status_code < 300 and not is_blocked_html(resp2.text):
+                record_host_ok(host)
+                return resp2.text
         except Exception:
             record_host_timeout(host)
     else:
@@ -573,7 +572,6 @@ def extract_calendar_row(cells, headers, default_year, max_cols, is_macau=False,
         draw_counter += 1
         col_label = ""
         if row_date is not None and not is_macau:
-            # Hitung nama hari persis dari tanggal asli (anti-meleset)
             col_label = DAYS_7[row_date.weekday()]
         elif c < len(headers):
             h = headers[c].strip()
@@ -893,47 +891,67 @@ def stitch_history(long_hist, fresh_tail):
 
 def select_best_consensus(candidates, spec):
     if len(candidates) == 1:
-        return candidates[0]["draws"], candidates[0]["url"]
+        return candidates[0]["draws"], candidates[0]["url"], False
+
+    # Hitung kecocokan antar-situs untuk membuang situs yang salah pasaran (outlier)
+    match_counts = []
+    for i, c in enumerate(candidates):
+        matches = 0
+        for j, other in enumerate(candidates):
+            if i == j:
+                continue
+            ok, _ = compare_tail_sequences(c["draws"], other["draws"])
+            if ok:
+                matches += 1
+        match_counts.append(matches)
+
+    max_matches = max(match_counts)
+    verified_by_majority = max_matches >= 1
+
+    # Jika ada kelompok situs yang saling cocok (suara mayoritas), buang situs penyimpang
+    if verified_by_majority:
+        pool = [c for c, mc in zip(candidates, match_counts) if mc == max_matches]
+    else:
+        pool = candidates
 
     now = datetime.now()
     is_macau = spec["id"] == "ttm"
-    best = candidates[0]
+    best = pool[0]
     best_score = -1e9
 
-    for i, c in enumerate(candidates):
+    for i, c in enumerate(pool):
         score = min(len(c["draws"]), 1500) * 0.02
         if not spec["must_lotto"] and "pools" in c["url"].lower():
             score += 60.0
         if c["latest_date"]:
             days_old = abs((now - c["latest_date"]).days)
-            # Cegah cuplikan pendek (<300 baris seperti SGP 129 baris) mengalahkan arsip 2000+ baris
             if days_old <= 2:
                 date_bonus = 500.0 if (is_macau or len(c["draws"]) >= 300) else 80.0
                 score += date_bonus - (days_old * 20.0)
             elif days_old > 15:
                 score -= 700.0
-        for j, other in enumerate(candidates):
+        for j, other in enumerate(pool):
             if i == j:
                 continue
             ok, extra = compare_tail_sequences(c["draws"], other["draws"])
             if ok:
                 score += 300.0
                 if 0 < extra <= 8:
-                    score += extra * 400.0
+                    score += extra * 450.0
         if score > best_score:
             best_score = score
             best = c
 
-    # Selalu sambungkan arsip terpanjang dengan ekor dari situs paling update
-    longest = max(candidates, key=lambda x: len(x["draws"]))
+    # Selalu sambungkan arsip terpanjang dengan ekor situs paling update
+    longest = max(pool, key=lambda x: len(x["draws"]))
     if longest is not best and len(longest["draws"]) > len(best["draws"]) + 25:
         ok, extra = compare_tail_sequences(best["draws"], longest["draws"])
         if ok and extra >= 0:
-            return stitch_history(longest["draws"], best["draws"]), best["url"]
+            return stitch_history(longest["draws"], best["draws"]), best["url"], verified_by_majority
         if ok and extra < 0:
-            return longest["draws"], longest["url"]
+            return longest["draws"], longest["url"], verified_by_majority
 
-    return best["draws"], best["url"]
+    return best["draws"], best["url"], verified_by_majority
 
 
 def sync_single_market(
@@ -943,7 +961,6 @@ def sync_single_market(
     saved_winner_url="",
     forbidden_tail=None,
     allow_proxies=True,
-    target_sites=2,
 ):
     forbidden_tail = forbidden_tail or []
     if existing_entries:
@@ -953,7 +970,6 @@ def sync_single_market(
             existing_entries = []
 
     candidate_urls = []
-    # Dahulukan URL pemenang dari run sebelumnya agar langsung tembak di percobaan #1
     if saved_winner_url and saved_winner_url.startswith("http"):
         candidate_urls.append(saved_winner_url)
     for u in discovered_urls.get(spec["id"], []) + spec["urls"]:
@@ -962,6 +978,7 @@ def sync_single_market(
 
     valid_candidates = []
     tried_hosts = set()
+    is_macau = spec["id"] == "ttm"
 
     for url in candidate_urls:
         host = urllib.parse.urlparse(url).netloc
@@ -980,19 +997,26 @@ def sync_single_market(
         valid_candidates.append({"url": url, "draws": draws, "latest_date": latest_dt})
         tried_hosts.add(host)
 
-        if len(valid_candidates) >= target_sites:
+        # Berhenti cepat di 2 situs HANYA jika keduanya sepakat DAN bukan arsip pendek semua
+        if len(valid_candidates) == 2:
+            ok_pair, _ = compare_tail_sequences(valid_candidates[0]["draws"], valid_candidates[1]["draws"])
+            max_len = max(len(valid_candidates[0]["draws"]), len(valid_candidates[1]["draws"]))
+            if ok_pair and (is_macau or max_len >= 300):
+                break
+        # Jika 2 situs tidak sepakat (atau pendek semua), ambil situs ke-3 sebagai pemutus seri
+        if len(valid_candidates) >= 3:
             break
 
     if not valid_candidates:
         return existing_entries, "cache", saved_winner_url, False
 
-    consensus, winner_url = select_best_consensus(valid_candidates, spec)
+    consensus, winner_url, verified_majority = select_best_consensus(valid_candidates, spec)
     winner_host = urllib.parse.urlparse(winner_url).netloc or "situs"
 
     if not existing_entries:
         return consensus, winner_host, winner_url, True
 
-    # Pulihkan arsip panjang (misal Singapore yang sempat tersimpan 129 periode -> kembali 2060+)
+    # Pulihkan arsip panjang (misal Singapore 129 periode -> kembali 2060+)
     if len(existing_entries) < 500 and len(consensus) >= 1000:
         ok_rec, extra_rec = compare_tail_sequences(consensus, existing_entries)
         if ok_rec and extra_rec >= 0:
@@ -1001,9 +1025,18 @@ def sync_single_market(
             return stitch_history(consensus, existing_entries), winner_host, winner_url, True
 
     ok_mem, extra_in_consensus = compare_tail_sequences(consensus, existing_entries)
-    if ok_mem and extra_in_consensus < 0:
+
+    # Pengaman anti-salah: tolak hasil 1 situs tunggal jika tidak nyambung sama sekali dengan riwayat lama
+    if not ok_mem:
+        if verified_majority or len(existing_entries) < 30:
+            return consensus, winner_host, winner_url, True
+        return existing_entries, f"ditahan ({winner_host})", saved_winner_url, True
+
+    # Pengaman anti-rollback: jangan mundur ke angka lebih lama
+    if extra_in_consensus < 0:
         return existing_entries, f"cache-terbaru ({winner_host})", winner_url, True
-    if ok_mem and extra_in_consensus == 0:
+
+    if extra_in_consensus == 0:
         if len(consensus) > len(existing_entries) + 10:
             return consensus, winner_host, winner_url, True
         return existing_entries, winner_host, winner_url, True
@@ -1044,21 +1077,25 @@ def main():
     live_ok = {}
 
     # =========================================================================
-    # TAHAP 1: Penarikan Langsung Cepat (curl_cffi, 2 situs pembanding, 6 worker)
+    # TAHAP 1: Penarikan Langsung Cepat (curl_cffi, paralel 6 worker)
     # =========================================================================
     sdy_lotto_spec = next(m for m in MARKETS if m["id"] == "sdy_lotto")
     hk_lotto_spec = next(m for m in MARKETS if m["id"] == "hk_lotto")
 
-    for lotto_spec in (sdy_lotto_spec, hk_lotto_spec):
-        m_id = lotto_spec["id"]
+    def worker_lotto(spec):
+        m_id = spec["id"]
         saved_u = old_meta.get(m_id, {}).get("winner_url", "")
         draws, src, w_url, ok = sync_single_market(
-            lotto_spec, {}, existing.get(m_id, []), saved_winner_url=saved_u, allow_proxies=False, target_sites=2
+            spec, {}, existing.get(m_id, []), saved_winner_url=saved_u, allow_proxies=False
         )
-        results[m_id] = draws
-        sources[m_id] = src
-        winner_urls[m_id] = w_url
-        live_ok[m_id] = ok
+        return m_id, draws, src, w_url, ok
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        for m_id, draws, src, w_url, ok in pool.map(worker_lotto, [sdy_lotto_spec, hk_lotto_spec]):
+            results[m_id] = draws
+            sources[m_id] = src
+            winner_urls[m_id] = w_url
+            live_ok[m_id] = ok
 
     sdy_lotto_tail = [x[0] for x in results["sdy_lotto"][-3:]] if len(results["sdy_lotto"]) >= 3 else []
     hk_lotto_tail = [x[0] for x in results["hk_lotto"][-3:]] if len(results["hk_lotto"]) >= 3 else []
@@ -1076,7 +1113,6 @@ def main():
             saved_winner_url=saved_u,
             forbidden_tail=forb,
             allow_proxies=False,
-            target_sites=2,
         )
         return m_id, draws, src, w_url, ok
 
@@ -1096,7 +1132,7 @@ def main():
         or (m["id"] == "sgp" and len(results.get("sgp", [])) < 500)
     ]
     if retry_specs:
-        print(f"[RETRY] Menjalankan cadangan proxy untuk {len(retry_specs)} pasaran: {[m['id'] for m in retry_specs]}")
+        print(f"[RETRY] Cadangan proxy untuk {len(retry_specs)} pasaran: {[m['id'] for m in retry_specs]}")
         discovered = discover_homepage_links()
         retry_specs.sort(key=lambda s: 0 if s["must_lotto"] else 1)
 
@@ -1112,7 +1148,6 @@ def main():
                 saved_winner_url=old_meta.get(m_id, {}).get("winner_url", ""),
                 forbidden_tail=forb,
                 allow_proxies=True,
-                target_sites=2,
             )
             if ok or not results.get(m_id):
                 results[m_id] = draws
